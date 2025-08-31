@@ -84,8 +84,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Final da colheita': '25/03/2024',
                   },
                 ),
-
-                // Atalhos com IMAGEM LOCAL DE FUNDO
                 _NavHeroCard(
                   label: 'Insumos',
                   route: '/insumos',

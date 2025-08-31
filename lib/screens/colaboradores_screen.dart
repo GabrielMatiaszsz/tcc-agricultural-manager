@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 class ColaboradoresScreen extends StatefulWidget {
   const ColaboradoresScreen({super.key});
@@ -178,6 +181,72 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
     }).toList();
   }
 
+  // ---------- IMPRESSÃO BÁSICA (PDF + diálogo do sistema) ----------
+  Future<void> _printEmployees() async {
+    final data = _filtered; // usa a lista filtrada/resultado da busca
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.MultiPage(
+        pageTheme: pw.PageTheme(margin: const pw.EdgeInsets.all(24)),
+        build: (context) => [
+          pw.Text(
+            'Colaboradores',
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Table.fromTextArray(
+            headers: const [
+              'ID',
+              'Nome',
+              'Função',
+              'Salário',
+              'Status',
+              'Email',
+              'Telefone',
+              'Admissão',
+            ],
+            data: data
+                .map(
+                  (e) => [
+                    e.id,
+                    e.name,
+                    e.role,
+                    _formatCurrencyBR(e.salary),
+                    e.status.label,
+                    e.email,
+                    e.phone,
+                    e.joinedText, // já vem como texto fixo
+                  ],
+                )
+                .toList(),
+            headerStyle: pw.TextStyle(
+              color: PdfColors.white,
+              fontWeight: pw.FontWeight.bold,
+            ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.green),
+            cellStyle: const pw.TextStyle(fontSize: 10),
+            cellAlignment: pw.Alignment.centerLeft,
+            headerAlignment: pw.Alignment.centerLeft,
+            columnWidths: {
+              0: const pw.FlexColumnWidth(1.2), // ID um pouco menor
+              3: const pw.FlexColumnWidth(1.3), // Salário
+            },
+          ),
+        ],
+        footer: (context) => pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text(
+            'Página ${context.pageNumber} de ${context.pagesCount}',
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+          ),
+        ),
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (format) async => doc.save());
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -211,6 +280,11 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
           ],
         ),
         actions: [
+          // NOVO: botão Imprimir
+          _topAction('Imprimir', Icons.print_rounded, () {
+            _printEmployees();
+          }),
+          const SizedBox(width: 8),
           _topAction('Importar', Icons.file_upload_rounded, () {
             ScaffoldMessenger.of(
               context,

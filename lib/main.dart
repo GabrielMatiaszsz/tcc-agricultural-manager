@@ -19,6 +19,7 @@ class MyApp extends StatelessWidget {
       title: 'Gerenciador Agrícola',
       theme: AppTheme.theme,
       initialRoute: '/',
+      debugShowCheckedModeBanner: false,
       routes: {
         '/': (context) => const LoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
@@ -29,4 +30,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
