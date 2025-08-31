@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
+
+import '../state/collaborators_notifier.dart';
+import '../data/models/employee.dart';
+import '../forms/collaborator_form_screen.dart'; // <-- IMPORT DO FORM
 
 class ColaboradoresScreen extends StatefulWidget {
   const ColaboradoresScreen({super.key});
@@ -10,55 +15,11 @@ class ColaboradoresScreen extends StatefulWidget {
   State<ColaboradoresScreen> createState() => _ColaboradoresScreenState();
 }
 
-/* ======================= DATA / MODELS ======================= */
-
-enum EmpStatus { ativo, inativo, convidado }
-
-extension EmpStatusX on EmpStatus {
-  String get label => switch (this) {
-    EmpStatus.ativo => 'Ativo',
-    EmpStatus.inativo => 'Inativo',
-    EmpStatus.convidado => 'Convidado',
-  };
-
-  Color get color => switch (this) {
-    EmpStatus.ativo => const Color(0xFF2FA34A),
-    EmpStatus.inativo => const Color(0xFF8E8E8E),
-    EmpStatus.convidado => const Color(0xFF2F80ED),
-  };
-
-  Color get bg => switch (this) {
-    EmpStatus.ativo => const Color(0xFFE6F5EA),
-    EmpStatus.inativo => const Color(0xFFECECEC),
-    EmpStatus.convidado => const Color(0xFFE6F0FD),
-  };
-}
-
-class Employee {
-  final String id;
-  final String name;
-  final String role;
-  final double salary; // BRL
-  final String email;
-  final String phone;
-  final EmpStatus status;
-  final String joinedText; // <-- TEXTO FIXO (ex.: "Admitido em 29/10/2020")
-
-  const Employee({
-    required this.id,
-    required this.name,
-    required this.role,
-    required this.salary,
-    required this.email,
-    required this.phone,
-    required this.status,
-    required this.joinedText,
-  });
-}
+/* ======================= HELPERS ======================= */
 
 String _formatCurrencyBR(double v) {
   final neg = v < 0;
-  final s = v.abs().toStringAsFixed(2); // 1234.56
+  final s = v.abs().toStringAsFixed(2);
   final parts = s.split('.');
   final intPart = parts[0];
   final decPart = parts[1];
@@ -68,98 +29,31 @@ String _formatCurrencyBR(double v) {
     buf.write(intPart[i]);
     if ((idx - 1) % 3 == 0 && i != intPart.length - 1) buf.write('.');
   }
-  final str = buf.toString();
-  return '${neg ? '- ' : ''}R\$ $str,$decPart';
+  return '${neg ? '- ' : ''}R\$ ${buf.toString()},$decPart';
 }
+
+String _statusLabel(EmpStatus v) => switch (v) {
+  EmpStatus.ativo => 'Ativo',
+  EmpStatus.inativo => 'Inativo',
+  EmpStatus.convidado => 'Convidado',
+};
+
+Color _statusFg(EmpStatus v) => switch (v) {
+  EmpStatus.ativo => const Color(0xFF2FA34A),
+  EmpStatus.inativo => const Color(0xFF8E8E8E),
+  EmpStatus.convidado => const Color(0xFF2F80ED),
+};
+
+Color _statusBg(EmpStatus v) => switch (v) {
+  EmpStatus.ativo => const Color(0xFFE6F5EA),
+  EmpStatus.inativo => const Color(0xFFECECEC),
+  EmpStatus.convidado => const Color(0xFFE6F0FD),
+};
 
 /* ======================= SCREEN ======================= */
 
 class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
   final _searchCtrl = TextEditingController();
-  EmpStatus? _statusFilter;
-
-  final List<Employee> _employees = const [
-    Employee(
-      id: 'EMP001',
-      name: 'Ana Souza',
-      role: 'Gerente de Produção',
-      salary: 15800.00,
-      email: 'ana.souza@agro.com',
-      phone: '(11) 91234-5678',
-      status: EmpStatus.ativo,
-      joinedText: 'Admitido em 29/10/2020',
-    ),
-    Employee(
-      id: 'EMP002',
-      name: 'Carlos Lima',
-      role: 'Técnico Agrícola',
-      salary: 7200.50,
-      email: 'carlos.lima@agro.com',
-      phone: '(11) 99876-1122',
-      status: EmpStatus.ativo,
-      joinedText: 'Admitido em 01/02/2019',
-    ),
-    Employee(
-      id: 'EMP003',
-      name: 'Marina Alves',
-      role: 'Engenheira Agrônoma',
-      salary: 12950.75,
-      email: 'marina.alves@agro.com',
-      phone: '(31) 98888-2211',
-      status: EmpStatus.ativo,
-      joinedText: 'Admitido em 01/02/2021',
-    ),
-    Employee(
-      id: 'EMP004',
-      name: 'João Henrique',
-      role: 'Operador de Colheitadeira',
-      salary: 5800.00,
-      email: 'joao.henrique@agro.com',
-      phone: '(62) 97777-3344',
-      status: EmpStatus.ativo,
-      joinedText: 'Admitido em 21/09/2018',
-    ),
-    Employee(
-      id: 'EMP005',
-      name: 'Rafaela Pires',
-      role: 'RH • Pesquisas',
-      salary: 9800.00,
-      email: 'rafaela.pires@agro.com',
-      phone: '(21) 93456-7788',
-      status: EmpStatus.convidado,
-      joinedText: 'Admitido em 10/06/2024',
-    ),
-    Employee(
-      id: 'EMP006',
-      name: 'Pedro Martins',
-      role: 'UI Designer (Interno)',
-      salary: 6500.30,
-      email: 'pedro.martins@agro.com',
-      phone: '(47) 95555-9911',
-      status: EmpStatus.inativo,
-      joinedText: 'Admitido em 01/01/2019',
-    ),
-    Employee(
-      id: 'EMP007',
-      name: 'Bruna Costa',
-      role: 'Planejadora de Safra',
-      salary: 11500.00,
-      email: 'bruna.costa@agro.com',
-      phone: '(41) 95330-2277',
-      status: EmpStatus.ativo,
-      joinedText: 'Admitido em 12/05/2022',
-    ),
-    Employee(
-      id: 'EMP008',
-      name: 'Luís Amaral',
-      role: 'Mecânico de Máquinas',
-      salary: 7400.00,
-      email: 'luis.amaral@agro.com',
-      phone: '(51) 94444-5566',
-      status: EmpStatus.ativo,
-      joinedText: 'Admitido em 30/11/2023',
-    ),
-  ];
 
   @override
   void dispose() {
@@ -167,23 +61,8 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
     super.dispose();
   }
 
-  List<Employee> get _filtered {
-    final q = _searchCtrl.text.trim().toLowerCase();
-    return _employees.where((e) {
-      final byStatus = _statusFilter == null || e.status == _statusFilter;
-      final byText =
-          q.isEmpty ||
-          e.name.toLowerCase().contains(q) ||
-          e.role.toLowerCase().contains(q) ||
-          e.email.toLowerCase().contains(q) ||
-          e.id.toLowerCase().contains(q);
-      return byStatus && byText;
-    }).toList();
-  }
-
   // ---------- IMPRESSÃO BÁSICA (PDF + diálogo do sistema) ----------
-  Future<void> _printEmployees() async {
-    final data = _filtered; // usa a lista filtrada/resultado da busca
+  Future<void> _printEmployees(List<Employee> data) async {
     final doc = pw.Document();
 
     doc.addPage(
@@ -213,10 +92,10 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
                     e.name,
                     e.role,
                     _formatCurrencyBR(e.salary),
-                    e.status.label,
+                    _statusLabel(e.status),
                     e.email,
                     e.phone,
-                    e.joinedText, // já vem como texto fixo
+                    e.joinedText,
                   ],
                 )
                 .toList(),
@@ -229,8 +108,8 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
             cellAlignment: pw.Alignment.centerLeft,
             headerAlignment: pw.Alignment.centerLeft,
             columnWidths: {
-              0: const pw.FlexColumnWidth(1.2), // ID um pouco menor
-              3: const pw.FlexColumnWidth(1.3), // Salário
+              0: const pw.FlexColumnWidth(1.2),
+              3: const pw.FlexColumnWidth(1.3),
             },
           ),
         ],
@@ -249,6 +128,8 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<CollaboratorsNotifier>();
+
     final width = MediaQuery.sizeOf(context).width;
     final cross = width >= 1400
         ? 4
@@ -280,9 +161,12 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
           ],
         ),
         actions: [
-          // NOVO: botão Imprimir
           _topAction('Imprimir', Icons.print_rounded, () {
-            _printEmployees();
+            _printEmployees(state.items);
+          }),
+          const SizedBox(width: 8),
+          _topAction('Recarregar', Icons.refresh_rounded, () {
+            state.load(page: 1);
           }),
           const SizedBox(width: 8),
           _topAction('Importar', Icons.file_upload_rounded, () {
@@ -300,10 +184,20 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ElevatedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Adicionar colaborador (demo)')),
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CollaboratorFormScreen(),
+                  ),
                 );
+                if (!mounted) return;
+                if (created == true) {
+                  await context.read<CollaboratorsNotifier>().load(page: 1);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Colaborador cadastrado!')),
+                  );
+                }
               },
               icon: const Icon(Icons.add),
               label: const Text('Adicionar'),
@@ -326,25 +220,47 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _FiltersBar(
               controller: _searchCtrl,
-              statusFilter: _statusFilter,
-              onClearStatus: () => setState(() => _statusFilter = null),
-              onPickStatus: (s) => setState(() => _statusFilter = s),
+              statusFilter: state.status,
+              onPickStatus: (s) {
+                state.setStatus(s);
+                state.load(page: 1);
+              },
+              onClearStatus: () {
+                state.setStatus(null);
+                state.load(page: 1);
+              },
+              onSearchChanged: (txt) {
+                state.setQuery(txt);
+                state.load(page: 1);
+              },
             ),
           ),
           const SizedBox(height: 8),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: cross,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.88,
+          if (state.isLoading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (state.error != null)
+            Expanded(
+              child: Center(
+                child: Text(
+                  'Erro: ${state.error}',
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
-              itemCount: _filtered.length,
-              itemBuilder: (_, i) => _EmployeeCard(emp: _filtered[i]),
+            )
+          else
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cross,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 0.88,
+                ),
+                itemCount: state.items.length,
+                itemBuilder: (_, i) => _EmployeeCard(emp: state.items[i]),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -380,12 +296,14 @@ class _FiltersBar extends StatelessWidget {
     required this.statusFilter,
     required this.onPickStatus,
     required this.onClearStatus,
+    required this.onSearchChanged,
   });
 
   final TextEditingController controller;
   final EmpStatus? statusFilter;
   final ValueChanged<EmpStatus?> onPickStatus;
   final VoidCallback onClearStatus;
+  final ValueChanged<String> onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -401,7 +319,7 @@ class _FiltersBar extends StatelessWidget {
             width: 420,
             child: TextField(
               controller: controller,
-              onChanged: (_) => (context as Element).markNeedsBuild(),
+              onChanged: onSearchChanged,
               decoration: InputDecoration(
                 hintText: 'Pesquisar por nome, função, email ou #ID',
                 prefixIcon: const Icon(Icons.search),
@@ -410,7 +328,7 @@ class _FiltersBar extends StatelessWidget {
                     : IconButton(
                         onPressed: () {
                           controller.clear();
-                          (context as Element).markNeedsBuild();
+                          onSearchChanged('');
                         },
                         icon: const Icon(Icons.close),
                       ),
@@ -428,12 +346,9 @@ class _FiltersBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF2FA34A),
-                    width: 1.4,
-                  ),
+                focusedBorder: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                  borderSide: BorderSide(color: Color(0xFF2FA34A), width: 1.4),
                 ),
               ),
             ),
@@ -472,14 +387,14 @@ class _StatusFilterChip extends StatelessWidget {
       onSelected: onSelected,
       itemBuilder: (_) => <PopupMenuEntry<EmpStatus?>>[
         PopupMenuItem(value: null, child: const Text('Todos')),
-        PopupMenuDivider(), // <- sem const
+        PopupMenuDivider(),
         PopupMenuItem(
           value: EmpStatus.ativo,
           child: Row(
             children: [
-              _StatusDot(color: EmpStatus.ativo.color),
+              _StatusDot(color: _statusFg(EmpStatus.ativo)),
               const SizedBox(width: 8),
-              Text(EmpStatus.ativo.label),
+              Text(_statusLabel(EmpStatus.ativo)),
             ],
           ),
         ),
@@ -487,9 +402,9 @@ class _StatusFilterChip extends StatelessWidget {
           value: EmpStatus.convidado,
           child: Row(
             children: [
-              _StatusDot(color: EmpStatus.convidado.color),
+              _StatusDot(color: _statusFg(EmpStatus.convidado)),
               const SizedBox(width: 8),
-              Text(EmpStatus.convidado.label),
+              Text(_statusLabel(EmpStatus.convidado)),
             ],
           ),
         ),
@@ -497,16 +412,18 @@ class _StatusFilterChip extends StatelessWidget {
           value: EmpStatus.inativo,
           child: Row(
             children: [
-              _StatusDot(color: EmpStatus.inativo.color),
+              _StatusDot(color: _statusFg(EmpStatus.inativo)),
               const SizedBox(width: 8),
-              Text(EmpStatus.inativo.label),
+              Text(_statusLabel(EmpStatus.inativo)),
             ],
           ),
         ),
       ],
       child: InputChip(
         label: Text(
-          selected == null ? '$label: Todos' : '$label: ${selected!.label}',
+          selected == null
+              ? '$label: Todos'
+              : '$label: ${_statusLabel(selected!)}',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         avatar: const Icon(Icons.tune_rounded),
@@ -561,14 +478,17 @@ class _EmployeeCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: emp.status.bg,
+                    color: _statusBg(emp.status),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: emp.status.color, width: 1.2),
+                    border: Border.all(
+                      color: _statusFg(emp.status),
+                      width: 1.2,
+                    ),
                   ),
                   child: Text(
-                    emp.status.label,
+                    _statusLabel(emp.status),
                     style: TextStyle(
-                      color: emp.status.color,
+                      color: _statusFg(emp.status),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -579,7 +499,7 @@ class _EmployeeCard extends StatelessWidget {
                   itemBuilder: (_) => <PopupMenuEntry<int>>[
                     PopupMenuItem(value: 1, child: const Text('Ver detalhes')),
                     PopupMenuItem(value: 2, child: const Text('Editar')),
-                    PopupMenuDivider(), // <- sem const
+                    PopupMenuDivider(),
                     PopupMenuItem(value: 3, child: const Text('Remover')),
                   ],
                   onSelected: (v) {
